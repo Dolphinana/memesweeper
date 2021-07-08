@@ -161,7 +161,8 @@ MemeField::MemeField( int nMemes, Vei2 screenSize )
 
     CreateNeighborCount();
 
-    offset = screenSize / 3;
+    offset.x = (screenSize.x/2) - (width * SpriteCodex::tileSize)/2;
+    offset.y = (screenSize.y/2) - (height * SpriteCodex::tileSize)/2;
 }
 
 void MemeField::Draw(Graphics& gfx) const
