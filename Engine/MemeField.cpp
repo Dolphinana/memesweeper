@@ -2,38 +2,103 @@
 #include <assert.h>
 #include <random>
 #include "SpriteCodex.h"
+#include <algorithm> 
 
-void MemeField::Tile::Draw(const Vei2 screenPos, Graphics& gfx) const
+void MemeField::Tile::Draw(const Vei2 screenPos, bool isFucked, Graphics& gfx) const
 {
-    switch (state)
+    if (!isFucked)
     {
-    case StateTypes::Hidden:
-        SpriteCodex::DrawTileButton(screenPos, gfx);
-        break;
-    case StateTypes::Flagged:
-        SpriteCodex::DrawTileButton(screenPos, gfx);
-        SpriteCodex::DrawTileFlag(screenPos, gfx);
-        break;
-    case StateTypes::Revealed:
-		SpriteCodex::DrawTile0( screenPos, gfx );
-        if (HasMeme())
+        switch (state)
         {
-            SpriteCodex::DrawTileMeme( screenPos, gfx );
+        case StateTypes::Hidden:
+            SpriteCodex::DrawTileButton(screenPos, gfx);
+            break;
+        case StateTypes::Flagged:
+            SpriteCodex::DrawTileButton(screenPos, gfx);
+            SpriteCodex::DrawTileFlag(screenPos, gfx);
+            break;
+        case StateTypes::Revealed:
+            if (HasMeme())
+            {
+                SpriteCodex::DrawTileMeme(screenPos, gfx);
+            }
+            else
+            {
+                SpriteCodex::DrawTileNumber(screenPos, nNeighborMemes, gfx);
+            }
+            break;
         }
-        break;
+    }
+    else
+    {
+        switch (state)
+        {
+        case StateTypes::Hidden:
+            if (HasMeme())
+            {
+                SpriteCodex::DrawTileMeme(screenPos, gfx);
+            }
+            else
+            {
+                SpriteCodex::DrawTileButton(screenPos, gfx);
+            }
+            break;
+        case StateTypes::Flagged:
+            //SpriteCodex::DrawTileButton(screenPos, gfx);
+            if (HasMeme())
+            {
+                SpriteCodex::DrawTileButton(screenPos, gfx);
+				SpriteCodex::DrawTileFlag(screenPos, gfx);
+            }
+            else
+            {
+                SpriteCodex::DrawTileMeme(screenPos, gfx);
+                SpriteCodex::DrawTileCross(screenPos, gfx);
+            }
+            break;
+        case StateTypes::Revealed:
+            if (HasMeme())
+            {
+                SpriteCodex::DrawTileMemeRed(screenPos, gfx);
+            }
+            else
+            {
+                SpriteCodex::DrawTileNumber(screenPos, nNeighborMemes, gfx);
+            }
+            break;
+        }
     }
 }
 
 void MemeField::Tile::Reveal()
 {
-    assert(state != StateTypes::Revealed);
+    assert(state == StateTypes::Hidden);
 
     state = StateTypes::Revealed;
 }
 
-bool MemeField::Tile::Revealed() const
+bool MemeField::Tile::IsRevealed() const
 {
     return state == StateTypes::Revealed;
+}
+
+void MemeField::Tile::ToggleFlag()
+{
+    assert(state != StateTypes::Revealed);
+
+    if (state != StateTypes::Flagged)
+    {
+        state = StateTypes::Flagged;
+    }
+    else
+    {
+        state = StateTypes::Hidden;
+    }
+}
+
+bool MemeField::Tile::IsFlagged() const
+{
+    return state == StateTypes::Flagged;
 }
 
 void MemeField::Tile::SpawnMeme()
@@ -44,6 +109,18 @@ void MemeField::Tile::SpawnMeme()
 bool MemeField::Tile::HasMeme() const
 {
     return hasMeme;
+}
+
+void MemeField::Tile::SetNeighborMemeCount(int nMemes)
+{
+    assert(nNeighborMemes == -1);
+
+    nNeighborMemes = nMemes;
+}
+
+int MemeField::Tile::GetNeighborMemeCount() const
+{
+    return nNeighborMemes;
 }
 
 RectI MemeField::GetRect() const
@@ -80,6 +157,8 @@ MemeField::MemeField(int nMemes)
 
         TileAt(newGrid).SpawnMeme();
     }
+
+    CreateNeighborCount();
 }
 
 void MemeField::Draw(Graphics& gfx) const
@@ -90,23 +169,79 @@ void MemeField::Draw(Graphics& gfx) const
     {
         for (gridPos.x = 0; gridPos.x < width; ++gridPos.x)
         {
-            TileAt(gridPos).Draw(gridPos * SpriteCodex::tileSize, gfx);
+            TileAt(gridPos).Draw(gridPos * SpriteCodex::tileSize, isFucked, gfx);
 		}
     }
 }
 
 void MemeField::OnRevealClick(const Vei2 screenPos)
 {
-    Vei2 gridPos = ScreenToGrid(screenPos);
-    // if NOT REVEALED >:(
-    assert(gridPos.x >= 0 && gridPos.x < width&& gridPos.y >= 0 && gridPos.y < height);
-    if (!TileAt(gridPos).Revealed())
+    if (!isFucked)
     {
-        TileAt(gridPos).Reveal();
+        Vei2 gridPos = ScreenToGrid(screenPos);
+        // if NOT REVEALED >:(
+        assert(gridPos.x >= 0 && gridPos.x < width&& gridPos.y >= 0 && gridPos.y < height);
+        Tile& tile = TileAt(gridPos);
+        if (!tile.IsRevealed() && !tile.IsFlagged())
+        {
+            if (tile.HasMeme())
+            {
+                isFucked = true;
+            }
+            tile.Reveal();
+        }
+    }
+}
+
+void MemeField::OnFlagClick(const Vei2 screenPos)
+{
+    if (!isFucked)
+    {
+        Vei2 gridPos = ScreenToGrid(screenPos);
+        // if NOT REVEALED >:(
+        assert(gridPos.x >= 0 && gridPos.x < width&& gridPos.y >= 0 && gridPos.y < height);
+        Tile& tile = TileAt(gridPos);
+        if (!tile.IsRevealed())
+        {
+            tile.ToggleFlag();
+        }
     }
 }
 
 Vei2 MemeField::ScreenToGrid(const Vei2 screenPos) const
 {
     return screenPos / SpriteCodex::tileSize;
+}
+
+void MemeField::CreateNeighborCount()
+{
+    for (Vei2 checkPos = { 0, 0 }; checkPos.y < height; ++checkPos.y)
+    {
+        for (checkPos.x = 0; checkPos.x < width; ++checkPos.x)
+        {
+            TileAt(checkPos).SetNeighborMemeCount(GetTileNeighborCount(checkPos));
+        }
+    }
+}
+
+int MemeField::GetTileNeighborCount( const Vei2& gridPos )
+{
+    const int xStart = std::max(0, gridPos.x - 1);
+    const int yStart = std::max(0, gridPos.y - 1);
+    const int xEnd = std::min(width - 1, gridPos.x + 1);
+    const int yEnd = std::min(height - 1, gridPos.y + 1);
+
+    int count = 0;
+    for ( Vei2 checkPos = {xStart, yStart}; checkPos.y <= yEnd; ++checkPos.y)
+    {
+        for (checkPos.x = xStart; checkPos.x <= xEnd; ++checkPos.x)
+        {
+            if (TileAt(checkPos).HasMeme())
+            {
+                ++count;
+            }
+        }
+    }
+
+    return count;
 }
