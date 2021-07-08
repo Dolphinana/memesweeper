@@ -6,7 +6,31 @@
 
 void MemeField::Tile::Draw(const Vei2 screenPos, GameState gameState, Graphics& gfx) const
 {
-    if (gameState != MemeField::GameState::Fucked)
+    if (gameState == MemeField::GameState::iWon)
+	{
+        switch (state)
+        {
+        case StateTypes::Hidden:
+            SpriteCodex::DrawTileMeme(screenPos, gfx);
+            break;
+        case StateTypes::Flagged:
+            SpriteCodex::DrawTileButton(screenPos, gfx);
+            SpriteCodex::DrawTileFlag(screenPos, gfx);
+            break;
+        case StateTypes::Revealed:
+            if (HasMeme())
+            {
+                SpriteCodex::DrawTileMeme(screenPos, gfx);
+            }
+            else
+            {
+                SpriteCodex::DrawTileNumber(screenPos, nNeighborMemes, gfx);
+            }
+            break;
+        }
+    }
+
+    else if (gameState != MemeField::GameState::Fucked)
     {
         switch (state)
         {
@@ -29,7 +53,7 @@ void MemeField::Tile::Draw(const Vei2 screenPos, GameState gameState, Graphics& 
             break;
         }
     }
-    else
+       else 
     {
         switch (state)
         {
@@ -68,6 +92,8 @@ void MemeField::Tile::Draw(const Vei2 screenPos, GameState gameState, Graphics& 
             break;
         }
     }
+
+
 
 }
 
