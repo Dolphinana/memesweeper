@@ -25,7 +25,7 @@ Game::Game( MainWindow& wnd )
 	:
 	wnd( wnd ),
 	gfx( wnd ),
-	field( 21 )
+	field( 24, Vei2(Graphics::ScreenWidth,Graphics::ScreenHeight))
 {
 }
 
@@ -39,6 +39,11 @@ void Game::Go()
 
 void Game::UpdateModel()
 {
+	if (wnd.kbd.KeyIsPressed(VK_ESCAPE))
+	{
+		wnd.Kill();
+	}
+
 	while ( !wnd.mouse.IsEmpty() )
 	{
 		const auto e = wnd.mouse.Read();

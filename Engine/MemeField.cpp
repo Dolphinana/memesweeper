@@ -4,9 +4,9 @@
 #include "SpriteCodex.h"
 #include <algorithm> 
 
-void MemeField::Tile::Draw(const Vei2 screenPos, bool isFucked, Graphics& gfx) const
+void MemeField::Tile::Draw(const Vei2 screenPos, GameState gameState, Graphics& gfx) const
 {
-    if (!isFucked)
+    if (gameState != MemeField::GameState::Fucked)
     {
         switch (state)
         {
@@ -68,6 +68,7 @@ void MemeField::Tile::Draw(const Vei2 screenPos, bool isFucked, Graphics& gfx) c
             break;
         }
     }
+
 }
 
 void MemeField::Tile::Reveal()
@@ -125,7 +126,7 @@ int MemeField::Tile::GetNeighborMemeCount() const
 
 RectI MemeField::GetRect() const
 {
-    return RectI(0, width * SpriteCodex::tileSize, 0, height * SpriteCodex::tileSize);
+    return RectI(offset.x, (width * SpriteCodex::tileSize) + offset.x, offset.y, (height * SpriteCodex::tileSize) + offset.y);
 }
 
 MemeField::Tile& MemeField::TileAt(const Vei2 gridPos)
@@ -138,7 +139,7 @@ const MemeField::Tile& MemeField::TileAt(const Vei2 gridPos) const
     return fields[gridPos.y * width + gridPos.x];
 }
 
-MemeField::MemeField(int nMemes)
+MemeField::MemeField( int nMemes, Vei2 screenSize )
 {
     std::random_device rd;
     std::mt19937 rng( rd() );
@@ -159,47 +160,80 @@ MemeField::MemeField(int nMemes)
     }
 
     CreateNeighborCount();
+
+    offset = screenSize / 3;
 }
 
 void MemeField::Draw(Graphics& gfx) const
 {
+    RectI border = GetRect();
+    border.left -= 20;
+    border.right += 20;
+    border.top -= 20;
+    border.bottom += 20;
+    gfx.DrawRect(border, Colors::Blue);
     gfx.DrawRect(GetRect(), SpriteCodex::baseColor);
     
     for (Vei2 gridPos = { 0,0 }; gridPos.y < height; ++gridPos.y)
     {
         for (gridPos.x = 0; gridPos.x < width; ++gridPos.x)
         {
-            TileAt(gridPos).Draw(gridPos * SpriteCodex::tileSize, isFucked, gfx);
+            TileAt(gridPos).Draw((gridPos * SpriteCodex::tileSize) + offset, gameState, gfx);
 		}
+    }
+
+
+
+    if (gameState == GameState::iWon)
+    {
+        SpriteCodex::DrawWin(offset, gfx);
     }
 }
 
 void MemeField::OnRevealClick(const Vei2 screenPos)
 {
-    if (!isFucked)
+    if (gameState == GameState::SweepingMemes)
     {
-        Vei2 gridPos = ScreenToGrid(screenPos);
+        Vei2 gridPos = ScreenToGrid(screenPos - offset);
+        RectI rect = GetRect();
         // if NOT REVEALED >:(
-        assert(gridPos.x >= 0 && gridPos.x < width&& gridPos.y >= 0 && gridPos.y < height);
+        assert(gridPos.x >= 0 && gridPos.x < width && gridPos.y >= 0 && gridPos.y < height);
         Tile& tile = TileAt(gridPos);
         if (!tile.IsRevealed() && !tile.IsFlagged())
         {
             if (tile.HasMeme())
             {
-                isFucked = true;
+                gameState = GameState::Fucked;
             }
             tile.Reveal();
         }
+    }
+
+    bool likeReally = true;
+    bool allSweeped = true;
+    for (Tile& t : fields)
+    {
+        if (!t.HasMeme())
+        {
+            allSweeped = t.IsRevealed() && likeReally;
+            likeReally = allSweeped;
+            //likeReally = t.IsRevealed();
+        }
+    }
+
+    if (allSweeped && likeReally)
+    {
+        gameState = GameState::iWon;
     }
 }
 
 void MemeField::OnFlagClick(const Vei2 screenPos)
 {
-    if (!isFucked)
+    if (gameState == GameState::SweepingMemes)
     {
-        Vei2 gridPos = ScreenToGrid(screenPos);
+        Vei2 gridPos = ScreenToGrid(screenPos - offset);
         // if NOT REVEALED >:(
-        assert(gridPos.x >= 0 && gridPos.x < width&& gridPos.y >= 0 && gridPos.y < height);
+        assert(gridPos.x >= 0 && gridPos.x < width && gridPos.y >= 0 && gridPos.y < height);
         Tile& tile = TileAt(gridPos);
         if (!tile.IsRevealed())
         {

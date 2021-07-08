@@ -6,6 +6,12 @@
 class MemeField
 {
 private:
+	enum class GameState
+	{
+		SweepingMemes,
+		Fucked,
+		iWon
+	};
 	class Tile
 	{
 	public:
@@ -16,7 +22,7 @@ private:
 			Revealed
 		};
 	public:
-		void Draw( const Vei2 screenPos, bool isFucked, Graphics& gfx) const;
+		void Draw( const Vei2 screenPos, GameState gameState, Graphics& gfx) const;
 		void Reveal();
 		bool IsRevealed() const;
 		void ToggleFlag();
@@ -34,7 +40,7 @@ private:
 	Tile& TileAt( const Vei2 gridPos );
 	const Tile& TileAt(const Vei2 gridPos) const;
 public:
-	MemeField( int nMemes );
+	MemeField( int nMemes, Vei2 screenSize );
 	void Draw( Graphics& gfx ) const;
 	void OnRevealClick(const Vei2 screenPos);
 	void OnFlagClick(const Vei2 screenPos);
@@ -44,8 +50,9 @@ public:
 	void CreateNeighborCount();
 	int GetTileNeighborCount( const Vei2& gridPos );
 private:
-	static constexpr int width = 20;
-	static constexpr int height = 16;
+	Vei2 offset;
+	static constexpr int width = 12;
+	static constexpr int height = 12;
 	Tile fields[width * height];
-	bool isFucked = false;
+	GameState gameState = GameState::SweepingMemes;
 };
